@@ -67,7 +67,7 @@
         const normalizedLabel = sanitizeLabel(label);
         const programNumber = track.instrument?.number ?? null;
 
-        let scratchId = 1;
+        let scratchId = undefined;
         for (const name in customInstruments) {
           if (normalizedLabel.includes(sanitizeLabel(name))) {
             scratchId = customInstruments[name];
