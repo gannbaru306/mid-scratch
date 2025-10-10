@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>MIDI to Scratch by gannbaru306</title>
+</head>
+<body>
+  <h2>MIDI変換ツール</h2>
+  <input type="file" id="midiFile" accept=".mid,.midi" />
+  <button id="convertBtn">変換してダウンロード</button>
+  <pre id="log"></pre>
+
+  <script type="module">
+    import { Midi } from "https://cdn.skypack.dev/@tonejs/midi";
+
+    const gmToScratchId = gm => {
+      if (gm >= 0 && gm < 4) return 1;
+      if (gm >= 4 && gm < 7) return 2;
+      if (gm >= 16 && gm < 20) return 3;
+      if (gm >= 24 && gm < 27) return 4;
+      if (gm >= 27 && gm < 32) return 5;
+      if (gm >= 32 && gm < 37) return 6;
+      if ([45, 46].includes(gm)) return 7;
+      if ([42, 43].includes(gm)) return 8;
+      if (gm === 58) return 9;
+      if (gm === 71) return 10;
+      if ([65, 66, 67].includes(gm)) return 11;
+      if (gm === 73) return 12;
+      if ([75, 76].includes(gm)) return 13;
+      if (gm === 70) return 14;
+      if ([53, 54].includes(gm)) return 15;
+      if (gm === 12) return 16;
+      if (gm === 11) return 17;
+      if (gm === 114) return 18;
+      if (gm === 13) return 19;
+      if (gm >= 80 && gm < 88) return 20;
+      if (gm >= 88 && gm < 96) return 21;
+      return 1;
+    };
+
+    const midiToScratchDrum = {
+      38: 1, 36: 2, 35: 2, 37: 3, 49: 4, 46: 5, 42: 6,
+      54: 7, 39: 8, 75: 9, 76: 10, 56: 11, 81: 12,
+      60: 13, 63: 14, 69: 15, 67: 16, 58: 17, 72: 18,
+      40: 1, 41: 1, 55: 18
+    };
+
+    const normalizeVelocity = v => Math.max(Math.round(v * 100), 10);
+    const sanitizeLabel = text => text.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+    document.getElementById("convertBtn").addEventListener("click", async () => {
+      const fileInput = document.getElementById("midiFile");
+      const file = fileInput.files[0];
+      if (!file) return alert("MIDIファイルを選択してください");
+
+      const arrayBuffer = await file.arrayBuffer();
+      const midi = new Midi(arrayBuffer);
+      const ticksPerBeat = midi.header.ppq;
+      const bpm = midi.header.tempos[0]?.bpm || 150;
+      const secondsPerBeat = 60 / bpm;
+      const ticksToSeconds = ticks => (ticks / ticksPerBeat) * secondsPerBeat;
+
+      const trackNotes = {};
+      midi.tracks.forEach((track, i) => {
+        const labelRaw = track.name || `Track${i + 1}`;
+        const label = `${labelRaw}_Track${i + 1}`;
+        const normalizedLabel = sanitizeLabel(label);
+        const programNumber = track.instrument?.number ?? null;
+
+        let scratchId = 1;
+        for (const name in customInstruments) {
+          if (normalizedLabel.includes(sanitizeLabel(name))) {
+            scratchId = customInstruments[name];
+            break;
+          }
+        }
+        if (!scratchId && programNumber !== null) {
+          scratchId = gmToScratchId(programNumber);
+        }
+
+        const isDrum = track.instrument?.family === "drums" || track.instrument?.number === 128;
+        const noteList = [];
+
+        track.notes.forEach(note => {
+          const startFrame = Math.round(note.time * 30);
+          const durationBeats = note.duration / secondsPerBeat;
+          const volume = normalizeVelocity(note.velocity);
+
+          if (isDrum) {
+            const drumId = midiToScratchDrum[note.midi];
+            if (drumId) {
+              if (!trackNotes["drums"]) {
+                trackNotes["drums"] = { scratch_id: 0, notes: [] };
+              }
+              trackNotes["drums"].notes.push([drumId, startFrame, durationBeats, volume]);
+            }
+          } else {
+            noteList.push([note.midi, startFrame, durationBeats, volume]);
+          }
+        });
+
+        if (!isDrum && noteList.length > 0) {
+          trackNotes[label] = { scratch_id: scratchId, notes: noteList };
+        }
+      });
+
+      const log = document.getElementById("log");
+      log.textContent = "変換完了！ノート数:\n";
+      Object.entries(trackNotes).forEach(([label, data]) => {
+        log.textContent += `${label}: ${data.notes.length} notes\n`;
+      });
+
+      const timestamp = new Date().toISOString().replace(/[-:T]/g, "").slice(0, 15);
+      const lines = [];
+
+      // 楽器IDリスト
+      for (const [label, data] of Object.entries(trackNotes)) {
+        if (data.notes.length > 0) {
+          lines.push(`${data.scratch_id}`);
+        }
+      }
+      lines.push("/");
+
+      // ノート情報
+      for (const [label, data] of Object.entries(trackNotes)) {
+        if (data.notes.length > 0) {
+          data.notes.forEach(([note, frame, beats, volume]) => {
+            lines.push(`${note}/${frame}/${beats.toFixed(2)}/${volume}`);
+          });
+          lines.push("/");
+        }
+      }
+      const blob = new Blob([lines.join("\n")], { type: "text/plain" });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = `combined_notes_${timestamp}.txt`;
+      link.click();
+    });
+
+    // カスタム楽器名 → Scratch ID（Part 1で参照される）
+    const customInstruments = {
+      "8-bit square": 21,
+      "8-bit sawtooth": 20,
+      "NES triangle": 6,
+      "FM bell": 16,
+      "ambient pad": 21,
+      "square lead": 21,
+      "saw lead": 20,
+      "triangle wave": 6,
+      "pulse wave": 21,
+      "chip bass": 6,
+      "chip lead": 20,
+      "retro pad": 21,
+      "vox": 15,
+      "voice": 15,
+      "pluck": 4,
+      "synth brass": 9,
+      "synth flute": 12,
+      "synth choir": 15,
+      "bit crash": 21,
+      "glitch": 21,
+      "laser": 20,
+      "noise": 0,
+      "french horn": 9,
+      "english horn": 10,
+      "synth horn": 20,
+      "ambient horn": 21,
+      "retro horn": 20,
+      "brass horn": 9
+    };
+  </script>
+</body>
+</html>
