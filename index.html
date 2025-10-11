@@ -103,13 +103,34 @@
           trackNotes[label] = { scratch_id: scratchId, notes: noteList };
         }
       });
+     const log = document.getElementById("log"); // ← ここを先に定義
 
-      const log = document.getElementById("log");
-      log.textContent = "変換完了！ノート数:\n";
-      Object.entries(trackNotes).forEach(([label, data]) => {
-        log.textContent += `${label}: ${data.notes.length} notes\n`;
-      });
+// ドラム未定義ノート収集
+const undefinedDrumNotes = new Set();
+midi.tracks.forEach(track => {
+  const isDrum = track.instrument?.family === "drums" || track.instrument?.number === 128;
+  if (isDrum) {
+    track.notes.forEach(note => {
+      const drumId = midiToScratchDrum[note.midi];
+      if (!drumId) {
+        undefinedDrumNotes.add(note.midi);
+      }
+    });
+  }
+});
 
+if (undefinedDrumNotes.size > 0) {
+  log.textContent += "\n以下の内容をgannbaru306のMIDI再生プログラムに貼り付けてください。ドラムが正しく認識されませんでした。\n";
+  [...undefinedDrumNotes].sort((a, b) => a - b).forEach(midiNote => {
+    log.textContent += `${midiNote}\n`;
+  });
+}
+
+log.textContent += "\n変換完了！ノート数:\n"; // ← += に変更
+Object.entries(trackNotes).forEach(([label, data]) => {
+  log.textContent += `${label}: ${data.notes.length} notes\n`;
+});
+      
       const timestamp = new Date().toISOString().replace(/[-:T]/g, "").slice(0, 15);
       const lines = [];
 
