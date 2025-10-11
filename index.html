@@ -13,30 +13,37 @@
   <script type="module">
     import { Midi } from "https://cdn.skypack.dev/@tonejs/midi";
 
-    const gmToScratchId = gm => {
-      if (gm >= 0 && gm < 4) return 1;
-      if (gm >= 4 && gm < 7) return 2;
-      if (gm >= 16 && gm < 20) return 3;
-      if (gm >= 24 && gm < 27) return 4;
-      if (gm >= 27 && gm < 32) return 5;
-      if (gm >= 32 && gm < 37) return 6;
-      if ([45, 46].includes(gm)) return 7;
-      if ([42, 43].includes(gm)) return 8;
-      if (gm === 58) return 9;
-      if (gm === 71) return 10;
-      if ([65, 66, 67].includes(gm)) return 11;
-      if (gm === 73) return 12;
-      if ([75, 76].includes(gm)) return 13;
-      if (gm === 70) return 14;
-      if ([53, 54].includes(gm)) return 15;
-      if (gm === 12) return 16;
-      if (gm === 11) return 17;
-      if (gm === 114) return 18;
-      if (gm === 13) return 19;
-      if (gm >= 80 && gm < 88) return 20;
-      if (gm >= 88 && gm < 96) return 21;
-      return 1;
-    };
+const gmToScratchId = gm => {
+  if (gm < 4) return 1;
+  if (gm < 7) return 2;
+  if (gm < 12) return 17;
+  if (gm === 12) return 16;
+  if (gm === 13) return 19;
+  if (gm === 14) return 16;
+  if (gm === 15) return 17;
+  if (gm < 20) return 3;
+  if (gm < 24) return 6;
+  if (gm < 27) return 4;
+  if (gm < 32) return 5;
+  if (gm < 40) return 6;
+  if (gm < 48) return 8;
+  if (gm < 52) return 15;
+  if (gm < 56) return 11;
+  if (gm < 60) return 9;
+  if (gm < 65) return 10;
+  if (gm < 68) return 11;
+  if (gm < 72) return 14;
+  if (gm < 75) return 12;
+  if (gm < 77) return 13;
+  if (gm < 80) return 13;
+  if (gm < 88) return 20;
+  if (gm < 96) return 21;
+  if (gm < 104) return 20;
+  if (gm < 112) return 16;
+  if (gm < 120) return 18;
+  if (gm < 128) return 0;
+  return 1;
+};
 
     const midiToScratchDrum = {
       38: 1, 36: 2, 35: 2, 37: 3, 49: 4, 46: 5, 42: 6,
