@@ -5,7 +5,7 @@
   <title>MIDI to Scratch by gannbaru306</title>
   </head>
 <body>
-  <h2>MIDI変換ツールv1.10</h2>
+  <h2>MIDI変換ツールv1.11</h2>
   <input type="file" id="midiFile" accept=".mid,.midi" />
   <button id="convertBtn">変換してダウンロード</button>
   <pre id="log"></pre>
@@ -45,23 +45,44 @@ const gmToScratchId = gm => {
   return 1;
 };
 
-    const midiToScratchDrum = {
-      38: 1, 36: 2, 35: 2, 37: 3, 49: 4, 46: 5, 42: 6,
-      54: 7, 39: 8, 75: 9, 76: 10, 56: 11, 81: 12,
-      60: 13, 63: 14, 69: 15, 67: 16, 58: 17, 72: 18,
-      40: 1, 41: 1, 55: 18
-    };
-    Object.assign(midiToScratchDrum, {
+const midiToScratchDrum = {
   27: 2,
-  43: 2,
+  35: 2,
+  36: 2,
+  37: 3,
+  38: 1,
+  39: 8,
+  40: 1,
+  41: 1,
+  42: 6,
+  43: 1,
   44: 6,
-  45: 2,
-  47: 2,
-  48: 2,
-  50: 9,
+  45: 1,
+  46: 5,
+  47: 1,
+  48: 1,
+  49: 4,
+  50: 10,
   51: 4,
-  57: 4
-});
+  54: 7,
+  55: 18,
+  56: 11,
+  57: 4,
+  58: 17,
+  60: 13,
+  61: 13,
+  62: 9,
+  63: 14,
+  64: 14,
+  67: 16,
+  69: 15,
+  71: 14,
+  72: 18,
+  75: 9,
+  76: 10,
+  77: 13,
+  81: 12
+};
 
 
     const normalizeVelocity = v => Math.max(Math.round(v * 100), 10);
