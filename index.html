@@ -44,6 +44,18 @@
       60: 13, 63: 14, 69: 15, 67: 16, 58: 17, 72: 18,
       40: 1, 41: 1, 55: 18
     };
+    Object.assign(midiToScratchDrum, {
+  27: 2,
+  43: 2,
+  44: 6,
+  45: 2,
+  47: 2,
+  48: 2,
+  50: 9,
+  51: 4,
+  57: 4
+});
+
 
     const normalizeVelocity = v => Math.max(Math.round(v * 100), 10);
     const sanitizeLabel = text => text.toLowerCase().replace(/[^a-z0-9]/g, '');
