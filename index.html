@@ -3,10 +3,25 @@
 <head>
   <meta charset="UTF-8">
   <title>MIDI to Scratch by gannbaru306</title>
+  <style>
+  #drop-zone {
+    border: 2px dashed #aaa;
+    padding: 40px;
+    text-align: center;
+    color: #666;
+    cursor: pointer;
+    margin-bottom: 20px;
+  }
+  #drop-zone.dragover {
+    border-color: #00aaff;
+    background-color: #f0f8ff;
+  }
+</style>
   </head>
 <body>
-  <h2>MIDI変換ツールv1.11</h2>
-  <input type="file" id="midiFile" accept=".mid,.midi" />
+  <h2>MIDI変換ツールv1.2</h2>
+  <div id="drop-zone">ここをクリックするか、MIDIファイルをドラッグしてください</div>
+  <input type="file" id="midiFile" accept=".mid,.midi" style="display:none;" />
   <button id="convertBtn">変換してダウンロード</button>
   <pre id="log"></pre>
 
@@ -84,6 +99,39 @@ const midiToScratchDrum = {
   81: 12
 };
 
+const dropZone = document.getElementById("drop-zone");
+const fileInput = document.getElementById("midiFile");
+
+// クリックでファイル選択
+dropZone.addEventListener("click", () => fileInput.click());
+
+// ファイル選択時
+fileInput.addEventListener("change", (e) => {
+  const file = e.target.files[0];
+  if (file) {
+    document.getElementById("log").textContent = `読み込み完了: ${file.name}`;
+  }
+});
+
+// ドラッグ＆ドロップ対応
+dropZone.addEventListener("dragover", (e) => {
+  e.preventDefault();
+  dropZone.classList.add("dragover");
+});
+
+dropZone.addEventListener("dragleave", () => {
+  dropZone.classList.remove("dragover");
+});
+
+dropZone.addEventListener("drop", (e) => {
+  e.preventDefault();
+  dropZone.classList.remove("dragover");
+  const file = e.dataTransfer.files[0];
+  if (file) {
+    fileInput.files = e.dataTransfer.files; // convertBtnでも使えるように
+    document.getElementById("log").textContent = `読み込み完了: ${file.name}`;
+  }
+});
 
     const normalizeVelocity = v => Math.max(Math.round(v * 100), 10);
     const sanitizeLabel = text => text.toLowerCase().replace(/[^a-z0-9]/g, '');
