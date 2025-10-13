@@ -19,14 +19,25 @@
 </style>
   </head>
 <body>
-  <h2>MIDI変換ツールv1.2</h2>
+  <h2>MIDI変換ツールv2.0</h2>
   <div id="drop-zone">ここをクリックするか、MIDIファイルをドラッグしてください</div>
   <input type="file" id="midiFile" accept=".mid,.midi" style="display:none;" />
   <button id="convertBtn">変換してダウンロード</button>
   <pre id="log"></pre>
-
+  <div id="player-controls">
+  <button id="playBtn">再生</button>
+  <button id="pauseBtn">停止</button>
+  <button id="backBtn">10秒戻す</button>
+  <button id="forwardBtn">10秒進める</button>
+  </div>
+  <label for="volumeSlider">音量</label>
+<input type="range" id="volumeSlider" min="0" max="1" step="0.01" value="0.5">
+<script src="https://cdn.jsdelivr.net/npm/midiplayerjs@latest"></script>
   <script type="module">
     import { Midi } from "https://cdn.skypack.dev/@tonejs/midi";
+    import * as Tone from "https://cdn.skypack.dev/tone";
+
+
 
 const gmToScratchId = gm => {
   if (gm < 4) return 1;
@@ -106,10 +117,24 @@ const fileInput = document.getElementById("midiFile");
 dropZone.addEventListener("click", () => fileInput.click());
 
 // ファイル選択時
-fileInput.addEventListener("change", (e) => {
+document.getElementById("midiFile").addEventListener("change", (e) => {
   const file = e.target.files[0];
   if (file) {
     document.getElementById("log").textContent = `読み込み完了: ${file.name}`;
+    const reader = new FileReader();
+    reader.onload = function() {
+      midiPlayer = new MidiPlayer.Player(function(event) {
+        if (event.name === "Note on") {
+          const freq = Tone.Frequency(event.noteNumber, "midi").toFrequency();
+          const synth = new Tone.Synth().connect(
+            new Tone.Gain(currentVolume * event.velocity).toDestination()
+          );
+          synth.triggerAttackRelease(freq, event.duration);
+        }
+      });
+      midiPlayer.loadArrayBuffer(reader.result);
+    };
+    reader.readAsArrayBuffer(file);
   }
 });
 
@@ -214,7 +239,7 @@ if (undefinedDrumNotes.size > 0) {
   });
 }
 
-log.textContent += "\n変換完了！ノート数:\n"; // ← += に変更
+log.textContent += "\n変換完了！ノート数:\n"; 
 Object.entries(trackNotes).forEach(([label, data]) => {
   log.textContent += `${label}: ${data.notes.length} notes\n`;
 });
@@ -277,6 +302,29 @@ Object.entries(trackNotes).forEach(([label, data]) => {
       "retro horn": 20,
       "brass horn": 9
     };
+    let midiPlayer = null;
+    let currentVolume = 0.5;
+document.getElementById("volumeSlider").addEventListener("input", (e) => {
+  currentVolume = parseFloat(e.target.value);
+});
+
+
+document.getElementById("playBtn").addEventListener("click", () => {
+  if (midiPlayer) midiPlayer.play();
+});
+
+document.getElementById("pauseBtn").addEventListener("click", () => {
+  if (midiPlayer) midiPlayer.pause();
+});
+
+document.getElementById("backBtn").addEventListener("click", () => {
+  if (midiPlayer) midiPlayer.skipSeconds(-10);
+});
+
+document.getElementById("forwardBtn").addEventListener("click", () => {
+  if (midiPlayer) midiPlayer.skipSeconds(10);
+});
+
   </script>
 </body>
 </html>
