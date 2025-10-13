@@ -310,6 +310,7 @@ document.getElementById("volumeSlider").addEventListener("input", (e) => {
 
 
 document.getElementById("playBtn").addEventListener("click", () => {
+  await Tone.start(); 
   if (midiPlayer) midiPlayer.play();
 });
 
