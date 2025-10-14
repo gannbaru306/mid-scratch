@@ -40,10 +40,8 @@
   <button id="convertBtn">変換してダウンロード</button>
   <div id="player-controls">
     <button id="playBtn">再生</button>
-    <button id="pauseBtn">停止</button>
-    <button id="backBtn">10秒戻す</button>
-    <button id="forwardBtn">10秒進める</button>
-  </div>
+    <button id="pauseBtn">一時停止</button>
+   </div>
   <label for="volumeSlider">音量</label>
   <input type="range" id="volumeSlider" min="0" max="1" step="0.01" value="0.5">
   <pre id="log">ログ出力エリア</pre>
@@ -106,19 +104,7 @@
 
     document.getElementById("pauseBtn").addEventListener("click", () => {
       picoAudio.stop();
-      log.textContent += "\n停止しました";
-    });
-
-    document.getElementById("backBtn").addEventListener("click", () => {
-      const t = picoAudio.getTime();
-      picoAudio.setTime(Math.max(0, t - 10));
-      log.textContent += `\n10秒戻す → ${Math.round(picoAudio.getTime())}秒`;
-    });
-
-    document.getElementById("forwardBtn").addEventListener("click", () => {
-      const t = picoAudio.getTime();
-      picoAudio.setTime(t + 10);
-      log.textContent += `\n10秒進める → ${Math.round(picoAudio.getTime())}秒`;
+      log.textContent += "\n一時停止しました";
     });
 
     document.getElementById("volumeSlider").addEventListener("input", (e) => {
