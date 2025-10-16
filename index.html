@@ -33,7 +33,7 @@
   </style>
 </head>
 <body>
-  <h2>MIDI変換ツールv2.5</h2>
+  <h2>MIDI変換ツールv2.6</h2>
   <div id="drop-zone">ここをクリックするか、MIDIファイルをドラッグしてください</div>
   <input type="file" id="midiFile" accept=".mid,.midi" style="display:none;" />
   <button id="convertBtn">変換してダウンロード</button>
@@ -161,7 +161,7 @@
     };
 
     const normalizeVelocity = v =>
-          Math.max(Math.round(v * 100), 10);
+          Math.max(Math.round((v ** 2) * 100), 10);
     const sanitizeLabel = text => text.toLowerCase().replace(/[^a-z0-9]/g, '');
 
     document.getElementById("convertBtn").addEventListener("click", async () => {
