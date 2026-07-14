@@ -47,7 +47,6 @@
   <pre id="log">ログ出力エリア</pre>
 
   <script>
-    // グローバル変数としてライブラリを使用
     const picoAudio = new PicoAudio();
     let midiLoaded = false;
     let currentVolume = 0.5;
@@ -70,11 +69,10 @@
       dropZone.classList.remove("dragover");
       const file = e.dataTransfer.files[0];
       if (file) {
-        // 一ぶブラウザでの代入エラーを防ぐ安全クッション
         try {
           fileInput.files = e.dataTransfer.files;
         } catch (err) {
-          console.warn("ファイル入力への代入が制限されました。処理は続行します。");
+          console.warn("ファイル入力への代入制限を回避しました。");
         }
         handleFile(file);
       }
@@ -85,20 +83,18 @@
       if (file) handleFile(file);
     });
 
-    // エラーハンドリングを追加して、動かない原因をログに可視化
     async function handleFile(file) {
       try {
         log.textContent = `読み込み中: ${file.name}...`;
         const arrayBuffer = await file.arrayBuffer();
         
         if (typeof Midi === 'undefined') {
-          throw new Error("Midiライブラリが読み込まれていません。ネット接続を確認してください。");
+          throw new Error("Midiライブラリが読み込まれていません。");
         }
 
         midi = new Midi(arrayBuffer);
         
         await picoAudio.init();
-        // PicoAudioにはArrayBufferをそのまま渡すのが安全
         const parsedData = picoAudio.parseSMF(arrayBuffer);
         picoAudio.setData(parsedData);
         
@@ -187,7 +183,7 @@
         return;
       }
 
-      const ticksPerBeat = midi.header.ppq;
+      const ticksPerBeat = midi.header.ppq || 480;
       const trackNotes = {};
 
       midi.tracks.forEach((track, i) => {
@@ -211,12 +207,17 @@
         const noteList = [];
 
         track.notes.forEach(note => {
-          const startFrame = Math.round(note.time * 30);
+          // 1拍12フレーム基準の整数計算 (誤差排除)
+          const startFrame = Math.round((note.ticks * 12) / ticksPerBeat);
           
+          // 12分割クオンタイズ
           const durationBeats = note.durationTicks / ticksPerBeat;
-          const volume = normalizeVelocity(note.velocity);
+          let quantizedBeats = Math.round(durationBeats * 12) / 12;
+          if (quantizedBeats <= 0) quantizedBeats = 1 / 12;
 
-          const cleanBeats = Math.round(durationBeats * 1000) / 1000;
+          // 小数点第2位までに丸め、末尾の0を消去
+          const cleanBeats = Number((Math.round(quantizedBeats * 100) / 100).toFixed(2));
+          const volume = normalizeVelocity(note.velocity);
 
           if (isDrum) {
             const drumId = midiToScratchDrum[note.midi];
@@ -236,7 +237,6 @@
         }
       });
 
-      // ドラム未定義ノート収集
       const undefinedDrumNotes = new Set();
       midi.tracks.forEach(track => {
         const isDrum = track.instrument?.family === "drums" || track.instrument?.number === 128;
@@ -265,7 +265,6 @@
       const timestamp = new Date().toISOString().replace(/[-:T]/g, "").slice(0, 15);
       const lines = [];
 
-      // 楽器IDリスト
       for (const [label, data] of Object.entries(trackNotes)) {
         if (data.notes.length > 0) {
           lines.push(`${data.scratch_id}`);
@@ -273,7 +272,6 @@
       }
       lines.push("/");
 
-      // ノート情報（軽量化されたデータを出力）
       for (const [label, data] of Object.entries(trackNotes)) {
         if (data.notes.length > 0) {
           data.notes.forEach(([note, frame, beats, volume]) => {
