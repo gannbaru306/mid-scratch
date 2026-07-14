@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <title>MIDI to Scratch by gannbaru306</title>
   <script src="https://unpkg.com/picoaudio/dist/browser/PicoAudio.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tonejs/midi@2.0.28/build/Midi.js"></script>
   <style>
     body {
       font-family: sans-serif;
@@ -33,21 +34,20 @@
   </style>
 </head>
 <body>
-  <h2>MIDI変換ツールv2.7</h2>
+  <h2>MIDI変換ツールv2.8</h2>
   <div id="drop-zone">ここをクリックするか、MIDIファイルをドラッグしてください</div>
   <input type="file" id="midiFile" accept=".mid,.midi" style="display:none;" />
   <button id="convertBtn">変換してダウンロード</button>
   <div id="player-controls">
     <button id="playBtn">再生</button>
     <button id="pauseBtn">一時停止</button>
-   </div>
+  </div>
   <label for="volumeSlider">音量</label>
   <input type="range" id="volumeSlider" min="0" max="1" step="0.01" value="0.5">
   <pre id="log">ログ出力エリア</pre>
 
-  <script type="module">
-    import { Midi } from "https://cdn.skypack.dev/@tonejs/midi";
-
+  <script>
+    // グローバル変数としてライブラリを使用
     const picoAudio = new PicoAudio();
     let midiLoaded = false;
     let currentVolume = 0.5;
@@ -70,7 +70,12 @@
       dropZone.classList.remove("dragover");
       const file = e.dataTransfer.files[0];
       if (file) {
-        fileInput.files = e.dataTransfer.files;
+        // 一ぶブラウザでの代入エラーを防ぐ安全クッション
+        try {
+          fileInput.files = e.dataTransfer.files;
+        } catch (err) {
+          console.warn("ファイル入力への代入が制限されました。処理は続行します。");
+        }
         handleFile(file);
       }
     });
@@ -80,16 +85,29 @@
       if (file) handleFile(file);
     });
 
+    // エラーハンドリングを追加して、動かない原因をログに可視化
     async function handleFile(file) {
-      log.textContent = `読み込み完了: ${file.name}`;
-      const arrayBuffer = await file.arrayBuffer();
-      midi = new Midi(arrayBuffer);
-      const smfData = new Uint8Array(arrayBuffer);
-      await picoAudio.init();
-      const parsedData = picoAudio.parseSMF(smfData);
-      picoAudio.setData(parsedData);
-      midiLoaded = true;
-      log.textContent += "\n再生準備完了";
+      try {
+        log.textContent = `読み込み中: ${file.name}...`;
+        const arrayBuffer = await file.arrayBuffer();
+        
+        if (typeof Midi === 'undefined') {
+          throw new Error("Midiライブラリが読み込まれていません。ネット接続を確認してください。");
+        }
+
+        midi = new Midi(arrayBuffer);
+        
+        await picoAudio.init();
+        // PicoAudioにはArrayBufferをそのまま渡すのが安全
+        const parsedData = picoAudio.parseSMF(arrayBuffer);
+        picoAudio.setData(parsedData);
+        
+        midiLoaded = true;
+        log.textContent += "\n再生準備完了";
+      } catch (error) {
+        log.textContent += `\n【エラー】ファイルの処理に失敗しました:\n${error.message}`;
+        console.error(error);
+      }
     }
 
     document.getElementById("playBtn").addEventListener("click", () => {
@@ -143,12 +161,12 @@
       return 1;
     };
 
-const midiToScratchDrum = {
-  27: 2, 35: 2, 36: 2, 37: 3, 38: 1, 39: 8, 40: 1, 41: 1, 42: 6, 43: 1, 44: 6,
-  45: 1, 46: 5, 47: 1, 48: 1, 49: 4, 50: 10, 51: 4, 54: 7, 55: 18, 56: 11,
-  57: 4, 58: 17, 60: 13, 61: 13, 62: 9, 63: 14, 64: 14, 67: 16, 69: 15,
-  71: 14, 72: 18, 75: 9, 76: 10, 77: 13, 81: 12, 53: 11, 59: 4, 65: 14
-};
+    const midiToScratchDrum = {
+      27: 2, 35: 2, 36: 2, 37: 3, 38: 1, 39: 8, 40: 1, 41: 1, 42: 6, 43: 1, 44: 6,
+      45: 1, 46: 5, 47: 1, 48: 1, 49: 4, 50: 10, 51: 4, 54: 7, 55: 18, 56: 11,
+      57: 4, 58: 17, 60: 13, 61: 13, 62: 9, 63: 14, 64: 14, 67: 16, 69: 15,
+      71: 14, 72: 18, 75: 9, 76: 10, 77: 13, 81: 12, 53: 11, 59: 4, 65: 14
+    };
 
     const customInstruments = {
       "8-bit square": 21, "8-bit sawtooth": 20, "NES triangle": 6, "FM bell": 16,
@@ -160,8 +178,7 @@ const midiToScratchDrum = {
       "retro horn": 20, "brass horn": 9
     };
 
-    const normalizeVelocity = v =>
-          Math.max(Math.round((v ** 2) * 100), 10);
+    const normalizeVelocity = v => Math.max(Math.round((v ** 2) * 100), 10);
     const sanitizeLabel = text => text.toLowerCase().replace(/[^a-z0-9]/g, '');
 
     document.getElementById("convertBtn").addEventListener("click", async () => {
@@ -171,11 +188,8 @@ const midiToScratchDrum = {
       }
 
       const ticksPerBeat = midi.header.ppq;
-      const bpm = midi.header.tempos[0]?.bpm || 150;
-      const secondsPerBeat = 60 / bpm;
-      const ticksToSeconds = ticks => (ticks / ticksPerBeat) * secondsPerBeat;
-
       const trackNotes = {};
+
       midi.tracks.forEach((track, i) => {
         const labelRaw = track.name || `Track${i + 1}`;
         const label = `${labelRaw}_Track${i + 1}`;
@@ -197,9 +211,15 @@ const midiToScratchDrum = {
         const noteList = [];
 
         track.notes.forEach(note => {
+          // note.timeは@tonejs/midiがテンポチェンジを計算済みの秒数なので、フレーム位置はこれで正確
           const startFrame = Math.round(note.time * 30);
-          const durationBeats = note.duration / secondsPerBeat;
+          
+          // 【改善】テンポに依存しないdurationTicksから純粋な拍数を計算
+          const durationBeats = note.durationTicks / ticksPerBeat;
           const volume = normalizeVelocity(note.velocity);
+
+          // 【軽量化】無駄な .00 や末尾の 0 をカット（例: 1.00 -> 1 / 1.50 -> 1.5）
+          const cleanBeats = Math.round(durationBeats * 100) / 100;
 
           if (isDrum) {
             const drumId = midiToScratchDrum[note.midi];
@@ -207,10 +227,10 @@ const midiToScratchDrum = {
               if (!trackNotes["drums"]) {
                 trackNotes["drums"] = { scratch_id: 0, notes: [] };
               }
-              trackNotes["drums"].notes.push([drumId, startFrame, durationBeats, volume]);
+              trackNotes["drums"].notes.push([drumId, startFrame, cleanBeats, volume]);
             }
           } else {
-            noteList.push([note.midi, startFrame, durationBeats, volume]);
+            noteList.push([note.midi, startFrame, cleanBeats, volume]);
           }
         });
 
@@ -256,11 +276,11 @@ const midiToScratchDrum = {
       }
       lines.push("/");
 
-      // ノート情報
+      // ノート情報（軽量化されたデータを出力）
       for (const [label, data] of Object.entries(trackNotes)) {
         if (data.notes.length > 0) {
           data.notes.forEach(([note, frame, beats, volume]) => {
-            lines.push(`${note}/${frame}/${beats.toFixed(2)}/${volume}`);
+            lines.push(`${note}/${frame}/${beats}/${volume}`);
           });
           lines.push("/");
         }
