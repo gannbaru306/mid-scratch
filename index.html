@@ -211,15 +211,12 @@
         const noteList = [];
 
         track.notes.forEach(note => {
-          // note.timeは@tonejs/midiがテンポチェンジを計算済みの秒数なので、フレーム位置はこれで正確
           const startFrame = Math.round(note.time * 30);
           
-          // 【改善】テンポに依存しないdurationTicksから純粋な拍数を計算
           const durationBeats = note.durationTicks / ticksPerBeat;
           const volume = normalizeVelocity(note.velocity);
 
-          // 【軽量化】無駄な .00 や末尾の 0 をカット（例: 1.00 -> 1 / 1.50 -> 1.5）
-          const cleanBeats = Math.round(durationBeats * 100) / 100;
+          const cleanBeats = Math.round(durationBeats * 1000) / 1000;
 
           if (isDrum) {
             const drumId = midiToScratchDrum[note.midi];
