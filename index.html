@@ -34,7 +34,7 @@
   </style>
 </head>
 <body>
-  <h2>MIDI変換ツールv3.0</h2>
+  <h2>MIDI変換ツールv4.0</h2>
   <p style="margin-bottom: 15px;">
   <a href="https://scratch.mit.edu/projects/1221707096/" target="_blank" rel="noopener noreferrer">
     こちら
@@ -213,15 +213,11 @@
         const noteList = [];
 
         track.notes.forEach(note => {
-          // 1拍12フレーム基準の整数計算 (誤差排除)
           const startFrame = Math.round((note.ticks * 12) / ticksPerBeat);
-          
-          // 12分割クオンタイズ
           const durationBeats = note.durationTicks / ticksPerBeat;
           let quantizedBeats = Math.round(durationBeats * 12) / 12;
           if (quantizedBeats <= 0) quantizedBeats = 1 / 12;
 
-          // 小数点第2位までに丸め、末尾の0を消去
           const cleanBeats = Number((Math.round(quantizedBeats * 100) / 100).toFixed(2));
           const volume = normalizeVelocity(note.velocity);
 
@@ -268,26 +264,78 @@
         log.textContent += `${label}: ${data.notes.length} notes\n`;
       });
 
-      const timestamp = new Date().toISOString().replace(/[-:T]/g, "").slice(0, 15);
-      const lines = [];
+      // --- ここから自動統合・出力制御の追加ロジック ---
+      
+      // 有効な（ノートが存在する）トラックのラベルリスト
+      const validLabels = Object.keys(trackNotes).filter(label => trackNotes[label].notes.length > 0);
+      let finalText = "";
 
-      for (const [label, data] of Object.entries(trackNotes)) {
-        if (data.notes.length > 0) {
-          lines.push(`${data.scratch_id}`);
+      if (validLabels.length > 15) {
+        // トラック数が15を超えている場合は自動で統合を実行
+        log.textContent += "\n統合しました！\n";
+        
+        const integratedData = {};
+        const uniqueIds = [];
+        
+        // 楽器番号(scratch_id)ごとにデータをまとめる
+        validLabels.forEach(label => {
+          const id = trackNotes[label].scratch_id;
+          if (!integratedData[id]) {
+            integratedData[id] = [];
+            uniqueIds.push(id);
+          }
+          integratedData[id].push(...trackNotes[label].notes);
+        });
+        
+        // まとめた各楽器内で、フレーム（配列の[1]）の昇順にソートする
+        for (const id in integratedData) {
+          integratedData[id].sort((a, b) => a[1] - b[1]);
         }
-      }
-      lines.push("/");
-
-      for (const [label, data] of Object.entries(trackNotes)) {
-        if (data.notes.length > 0) {
-          data.notes.forEach(([note, frame, beats, volume]) => {
+        
+        // 統合後も15種類(15トラック)を超えているかのチェック
+        if (uniqueIds.length > 15) {
+          log.textContent += "scratchで再生すると以下のトラックが抜け落ちます:\n";
+          const droppedIds = uniqueIds.slice(15);
+          droppedIds.forEach(id => {
+            log.textContent += `楽器番号 ${id}\n`;
+          });
+          
+          // 出力を15トラックまでに制限（カット）
+          uniqueIds.length = 15;
+        }
+        
+        // 統合・ソート済みのデータからテキストを組み立てる
+        const lines = [];
+        uniqueIds.forEach(id => lines.push(`${id}`));
+        lines.push("/");
+        
+        uniqueIds.forEach(id => {
+          integratedData[id].forEach(([note, frame, beats, volume]) => {
             lines.push(`${note}/${frame}/${beats}/${volume}`);
           });
           lines.push("/");
-        }
+        });
+        finalText = lines.join("\n");
+        
+      } else {
+        // トラック数が15以下の場合はそのまま（従来通り）出力
+        const lines = [];
+        validLabels.forEach(label => lines.push(`${trackNotes[label].scratch_id}`));
+        lines.push("/");
+        
+        validLabels.forEach(label => {
+          trackNotes[label].notes.forEach(([note, frame, beats, volume]) => {
+            lines.push(`${note}/${frame}/${beats}/${volume}`);
+          });
+          lines.push("/");
+        });
+        finalText = lines.join("\n");
       }
 
-      const blob = new Blob([lines.join("\n")], { type: "text/plain" });
+      // --- ここまで ---
+
+      const timestamp = new Date().toISOString().replace(/[-:T]/g, "").slice(0, 15);
+      const blob = new Blob([finalText], { type: "text/plain" });
       const link = document.createElement("a");
       link.href = URL.createObjectURL(blob);
       link.download = `combined_notes_${timestamp}.txt`;
