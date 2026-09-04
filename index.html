@@ -13,7 +13,7 @@
   </style>
 </head>
 <body>
-  <h2>MIDI変換ツールv4.6</h2>
+  <h2>MIDI変換ツールv4.7</h2>
   <p style="margin-bottom: 15px;">
   <a href="https://scratch.mit.edu/projects/1221707096/" target="_blank" rel="noopener noreferrer">こちら</a>でデータを読み込んで演奏することができます。
   </p>
@@ -99,7 +99,7 @@
       return 1;
     };
 
-    const midiToScratchDrum = { 27: 2, 35: 2, 36: 2, 37: 3, 38: 1, 39: 8, 40: 1, 41: 1, 42: 6, 43: 1, 44: 6, 45: 1, 46: 5, 47: 1, 48: 1, 49: 4, 50: 10, 51: 4, 54: 7, 55: 18, 56: 11, 57: 4, 58: 17, 60: 13, 61: 13, 62: 9, 63: 14, 64: 14, 67: 16, 69: 15, 71: 14, 72: 18, 75: 9, 76: 10, 77: 13, 81: 12, 53: 11, 59: 4, 65: 14, 30:15 };
+    const midiToScratchDrum = { 27: 2, 35: 2, 36: 2, 37: 3, 38: 1, 39: 8, 40: 1, 41: 1, 42: 6, 43: 1, 44: 6, 45: 1, 46: 5, 47: 1, 48: 1, 49: 4, 50: 10, 51: 4, 54: 7, 55: 18, 56: 11, 57: 4, 58: 17, 60: 13, 61: 13, 62: 9, 63: 14, 64: 14, 67: 16, 69: 15, 71: 14, 72: 18, 75: 9, 76: 10, 77: 13, 81: 12, 53: 11, 59: 4, 65: 14, 30: 15 };
 
     const customInstruments = {
       "8-bit square": 21, "8-bit sawtooth": 20, "NES triangle": 6, "FM bell": 16,
@@ -117,8 +117,8 @@
     document.getElementById("convertBtn").addEventListener("click", async () => {
       if (!midi) { alert("MIDIファイルを選択してください"); return; }
 
-      const ticksPerBeat = midi.header.ppq || 480;
       const trackNotes = {};
+      const scratchBpm = 150; // Scratch側の基本BPM設定
 
       midi.tracks.forEach((track, i) => {
         const label = `${track.name || `Track${i + 1}`}_Track${i + 1}`;
@@ -135,8 +135,11 @@
         const noteList = [];
 
         track.notes.forEach(note => {
-          const startFrame = Math.round((note.ticks * 12) / ticksPerBeat);
-          const durationBeats = note.durationTicks / ticksPerBeat;
+          // 実時間（秒）から Scratch の 30FPS フレーム数を算出
+          const startFrame = Math.round(note.time * 30);
+          
+          // Scratch(BPM 150)用の拍数換算
+          const durationBeats = (note.duration * scratchBpm) / 60;
           let quantizedBeats = Math.round(durationBeats * 12) / 12;
           if (quantizedBeats <= 0) quantizedBeats = 1 / 12;
 
@@ -220,7 +223,7 @@
           let maxCurrentPerSlot = 0;
           
           targetInstIds.forEach(id => {
-            if (instMaxSimultaneous[id] >= 10) { // 10音以上の楽器のみが対象
+            if (instMaxSimultaneous[id] >= 10) {
               const currentPerSlot = instMaxSimultaneous[id] / allocatedSlots[id];
               if (currentPerSlot > 5 && currentPerSlot > maxCurrentPerSlot) {
                 maxCurrentPerSlot = currentPerSlot;
