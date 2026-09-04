@@ -6,40 +6,16 @@
   <script src="https://unpkg.com/picoaudio/dist/browser/PicoAudio.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@tonejs/midi@2.0.28/build/Midi.js"></script>
   <style>
-    body {
-      font-family: sans-serif;
-      padding: 20px;
-    }
-    #drop-zone {
-      border: 2px dashed #aaa;
-      padding: 40px;
-      text-align: center;
-      color: #666;
-      cursor: pointer;
-      margin-bottom: 20px;
-    }
-    #drop-zone.dragover {
-      border-color: #00aaff;
-      background-color: #f0f8ff;
-    }
-    #log {
-      background: #f4f4f4;
-      border: 1px solid #ccc;
-      padding: 10px;
-      white-space: pre-wrap;
-      height: 200px;
-      overflow-y: auto;
-      margin-top: 10px;
-    }
+    body { font-family: sans-serif; padding: 20px; }
+    #drop-zone { border: 2px dashed #aaa; padding: 40px; text-align: center; color: #666; cursor: pointer; margin-bottom: 20px; }
+    #drop-zone.dragover { border-color: #00aaff; background-color: #f0f8ff; }
+    #log { background: #f4f4f4; border: 1px solid #ccc; padding: 10px; white-space: pre-wrap; height: 200px; overflow-y: auto; margin-top: 10px; }
   </style>
 </head>
 <body>
-  <h2>MIDI変換ツールv4.0</h2>
+  <h2>MIDI変換ツールv4.5</h2>
   <p style="margin-bottom: 15px;">
-  <a href="https://scratch.mit.edu/projects/1221707096/" target="_blank" rel="noopener noreferrer">
-    こちら
-  </a>
-  でデータを読み込んで演奏することができます。
+  <a href="https://scratch.mit.edu/projects/1221707096/" target="_blank" rel="noopener noreferrer">こちら</a>でデータを読み込んで演奏することができます。
   </p>
   <div id="drop-zone">ここをクリックするか、MIDIファイルをドラッグしてください</div>
   <input type="file" id="midiFile" accept=".mid,.midi" style="display:none;" />
@@ -63,23 +39,14 @@
     const fileInput = document.getElementById("midiFile");
 
     dropZone.addEventListener("click", () => fileInput.click());
-    dropZone.addEventListener("dragover", (e) => {
-      e.preventDefault();
-      dropZone.classList.add("dragover");
-    });
-    dropZone.addEventListener("dragleave", () => {
-      dropZone.classList.remove("dragover");
-    });
+    dropZone.addEventListener("dragover", (e) => { e.preventDefault(); dropZone.classList.add("dragover"); });
+    dropZone.addEventListener("dragleave", () => dropZone.classList.remove("dragover"));
     dropZone.addEventListener("drop", (e) => {
       e.preventDefault();
       dropZone.classList.remove("dragover");
       const file = e.dataTransfer.files[0];
       if (file) {
-        try {
-          fileInput.files = e.dataTransfer.files;
-        } catch (err) {
-          console.warn("ファイル入力への代入制限を回避しました。");
-        }
+        try { fileInput.files = e.dataTransfer.files; } catch (err) {}
         handleFile(file);
       }
     });
@@ -93,30 +60,20 @@
       try {
         log.textContent = `読み込み中: ${file.name}...`;
         const arrayBuffer = await file.arrayBuffer();
-        
-        if (typeof Midi === 'undefined') {
-          throw new Error("Midiライブラリが読み込まれていません。");
-        }
+        if (typeof Midi === 'undefined') throw new Error("Midiライブラリが読み込まれていません。");
 
         midi = new Midi(arrayBuffer);
-        
         await picoAudio.init();
-        const parsedData = picoAudio.parseSMF(arrayBuffer);
-        picoAudio.setData(parsedData);
-        
+        picoAudio.setData(picoAudio.parseSMF(arrayBuffer));
         midiLoaded = true;
         log.textContent += "\n再生準備完了";
       } catch (error) {
         log.textContent += `\n【エラー】ファイルの処理に失敗しました:\n${error.message}`;
-        console.error(error);
       }
     }
 
     document.getElementById("playBtn").addEventListener("click", () => {
-      if (!midiLoaded) {
-        log.textContent += "\nMIDIファイルを読み込んでください";
-        return;
-      }
+      if (!midiLoaded) { log.textContent += "\nMIDIファイルを読み込んでください"; return; }
       picoAudio.play();
       log.textContent += "\n再生開始";
     });
@@ -132,43 +89,17 @@
     });
 
     const gmToScratchId = gm => {
-      if (gm < 4) return 1;
-      if (gm < 7) return 2;
-      if (gm < 12) return 17;
-      if (gm === 12) return 16;
-      if (gm === 13) return 19;
-      if (gm === 14) return 16;
-      if (gm === 15) return 17;
-      if (gm < 20) return 3;
-      if (gm < 24) return 6;
-      if (gm < 27) return 4;
-      if (gm < 32) return 5;
-      if (gm < 40) return 6;
-      if (gm < 48) return 8;
-      if (gm < 52) return 15;
-      if (gm < 56) return 11;
-      if (gm < 60) return 9;
-      if (gm < 65) return 10;
-      if (gm < 68) return 11;
-      if (gm < 72) return 14;
-      if (gm < 75) return 12;
-      if (gm < 77) return 13;
-      if (gm < 80) return 13;
-      if (gm < 88) return 20;
-      if (gm < 96) return 21;
-      if (gm < 104) return 20;
-      if (gm < 112) return 16;
-      if (gm < 120) return 18;
-      if (gm < 128) return 7;
+      if (gm < 4) return 1; if (gm < 7) return 2; if (gm < 12) return 17; if (gm === 12) return 16;
+      if (gm === 13) return 19; if (gm === 14) return 16; if (gm === 15) return 17; if (gm < 20) return 3;
+      if (gm < 24) return 6; if (gm < 27) return 4; if (gm < 32) return 5; if (gm < 40) return 6;
+      if (gm < 48) return 8; if (gm < 52) return 15; if (gm < 56) return 11; if (gm < 60) return 9;
+      if (gm < 65) return 10; if (gm < 68) return 11; if (gm < 72) return 14; if (gm < 75) return 12;
+      if (gm < 77) return 13; if (gm < 80) return 13; if (gm < 88) return 20; if (gm < 96) return 21;
+      if (gm < 104) return 20; if (gm < 112) return 16; if (gm < 120) return 18; if (gm < 128) return 7;
       return 1;
     };
 
-    const midiToScratchDrum = {
-      27: 2, 35: 2, 36: 2, 37: 3, 38: 1, 39: 8, 40: 1, 41: 1, 42: 6, 43: 1, 44: 6,
-      45: 1, 46: 5, 47: 1, 48: 1, 49: 4, 50: 10, 51: 4, 54: 7, 55: 18, 56: 11,
-      57: 4, 58: 17, 60: 13, 61: 13, 62: 9, 63: 14, 64: 14, 67: 16, 69: 15,
-      71: 14, 72: 18, 75: 9, 76: 10, 77: 13, 81: 12, 53: 11, 59: 4, 65: 14, 30: 15
-    };
+    const midiToScratchDrum = { 27: 2, 35: 2, 36: 2, 37: 3, 38: 1, 39: 8, 40: 1, 41: 1, 42: 6, 43: 1, 44: 6, 45: 1, 46: 5, 47: 1, 48: 1, 49: 4, 50: 10, 51: 4, 54: 7, 55: 18, 56: 11, 57: 4, 58: 17, 60: 13, 61: 13, 62: 9, 63: 14, 64: 14, 67: 16, 69: 15, 71: 14, 72: 18, 75: 9, 76: 10, 77: 13, 81: 12, 53: 11, 59: 4, 65: 14 };
 
     const customInstruments = {
       "8-bit square": 21, "8-bit sawtooth": 20, "NES triangle": 6, "FM bell": 16,
@@ -184,30 +115,21 @@
     const sanitizeLabel = text => text.toLowerCase().replace(/[^a-z0-9]/g, '');
 
     document.getElementById("convertBtn").addEventListener("click", async () => {
-      if (!midi) {
-        alert("MIDIファイルを選択してください");
-        return;
-      }
+      if (!midi) { alert("MIDIファイルを選択してください"); return; }
 
       const ticksPerBeat = midi.header.ppq || 480;
       const trackNotes = {};
 
       midi.tracks.forEach((track, i) => {
-        const labelRaw = track.name || `Track${i + 1}`;
-        const label = `${labelRaw}_Track${i + 1}`;
+        const label = `${track.name || `Track${i + 1}`}_Track${i + 1}`;
         const normalizedLabel = sanitizeLabel(label);
         const programNumber = track.instrument?.number ?? null;
 
         let scratchId = undefined;
         for (const name in customInstruments) {
-          if (normalizedLabel.includes(sanitizeLabel(name))) {
-            scratchId = customInstruments[name];
-            break;
-          }
+          if (normalizedLabel.includes(sanitizeLabel(name))) { scratchId = customInstruments[name]; break; }
         }
-        if (!scratchId && programNumber !== null) {
-          scratchId = gmToScratchId(programNumber);
-        }
+        if (!scratchId && programNumber !== null) scratchId = gmToScratchId(programNumber);
 
         const isDrum = track.instrument?.family === "drums" || track.instrument?.number === 128;
         const noteList = [];
@@ -224,9 +146,7 @@
           if (isDrum) {
             const drumId = midiToScratchDrum[note.midi];
             if (drumId) {
-              if (!trackNotes["drums"]) {
-                trackNotes["drums"] = { scratch_id: 0, notes: [] };
-              }
+              if (!trackNotes["drums"]) trackNotes["drums"] = { scratch_id: 0, notes: [] };
               trackNotes["drums"].notes.push([drumId, startFrame, cleanBeats, volume]);
             }
           } else {
@@ -234,106 +154,137 @@
           }
         });
 
-        if (!isDrum && noteList.length > 0) {
-          trackNotes[label] = { scratch_id: scratchId, notes: noteList };
-        }
+        if (!isDrum && noteList.length > 0) trackNotes[label] = { scratch_id: scratchId, notes: noteList };
       });
 
       const undefinedDrumNotes = new Set();
       midi.tracks.forEach(track => {
-        const isDrum = track.instrument?.family === "drums" || track.instrument?.number === 128;
-        if (isDrum) {
-          track.notes.forEach(note => {
-            const drumId = midiToScratchDrum[note.midi];
-            if (!drumId) {
-              undefinedDrumNotes.add(note.midi);
-            }
-          });
+        if (track.instrument?.family === "drums" || track.instrument?.number === 128) {
+          track.notes.forEach(note => { if (!midiToScratchDrum[note.midi]) undefinedDrumNotes.add(note.midi); });
         }
       });
 
       if (undefinedDrumNotes.size > 0) {
         log.textContent += "\n以下の内容をgannbaru306のMIDI再生プログラムのコメント欄に貼り付けてください。\nドラムが正しく認識されませんでした。\n";
-        [...undefinedDrumNotes].sort((a, b) => a - b).forEach(midiNote => {
-          log.textContent += `${midiNote}\n`;
-        });
+        [...undefinedDrumNotes].sort((a, b) => a - b).forEach(n => log.textContent += `${n}\n`);
       }
 
       log.textContent += "\n変換完了！ノート数:\n"; 
-      Object.entries(trackNotes).forEach(([label, data]) => {
-        log.textContent += `${label}: ${data.notes.length} notes\n`;
+      Object.entries(trackNotes).forEach(([label, data]) => log.textContent += `${label}: ${data.notes.length} notes\n`);
+
+      // 同一scratch_idでノートを完全統合
+      const validLabels = Object.keys(trackNotes).filter(label => trackNotes[label].notes.length > 0);
+      const groupedByInst = {};
+      validLabels.forEach(label => {
+        const id = trackNotes[label].scratch_id;
+        if (!groupedByInst[id]) groupedByInst[id] = [];
+        groupedByInst[id].push(...trackNotes[label].notes);
       });
 
-      // --- ここから自動統合・出力制御の追加ロジック ---
-      
-      // 有効な（ノートが存在する）トラックのラベルリスト
-      const validLabels = Object.keys(trackNotes).filter(label => trackNotes[label].notes.length > 0);
-      let finalText = "";
+      const instIds = Object.keys(groupedByInst);
+      const instMaxSimultaneous = {};
+      let needsSplitting = false;
 
-      if (validLabels.length > 15) {
-        // トラック数が15を超えている場合は自動で統合を実行
-        log.textContent += "\n統合しました！\n";
-        
-        const integratedData = {};
-        const uniqueIds = [];
-        
-        // 楽器番号(scratch_id)ごとにデータをまとめる
-        validLabels.forEach(label => {
-          const id = trackNotes[label].scratch_id;
-          if (!integratedData[id]) {
-            integratedData[id] = [];
-            uniqueIds.push(id);
-          }
-          integratedData[id].push(...trackNotes[label].notes);
+      instIds.forEach(id => {
+        const notes = groupedByInst[id];
+        notes.sort((a, b) => a[1] - b[1]);
+        const frameCounts = {};
+        let maxC = 0;
+        notes.forEach(n => {
+          const f = n[1];
+          frameCounts[f] = (frameCounts[f] || 0) + 1;
+          if (frameCounts[f] > maxC) maxC = frameCounts[f];
         });
-        
-        // まとめた各楽器内で、フレーム（配列の[1]）の昇順にソートする
-        for (const id in integratedData) {
-          integratedData[id].sort((a, b) => a[1] - b[1]);
-        }
-        
-        // 統合後も15種類(15トラック)を超えているかのチェック
-        if (uniqueIds.length > 15) {
-          log.textContent += "scratchで再生すると以下のトラックが抜け落ちます:\n";
-          const droppedIds = uniqueIds.slice(15);
-          droppedIds.forEach(id => {
-            log.textContent += `楽器番号 ${id}\n`;
-          });
-          
-          // 出力を15トラックまでに制限（カット）
-          uniqueIds.length = 15;
-        }
-        
-        // 統合・ソート済みのデータからテキストを組み立てる
-        const lines = [];
-        uniqueIds.forEach(id => lines.push(`${id}`));
-        lines.push("/");
-        
-        uniqueIds.forEach(id => {
-          integratedData[id].forEach(([note, frame, beats, volume]) => {
-            lines.push(`${note}/${frame}/${beats}/${volume}`);
-          });
-          lines.push("/");
-        });
-        finalText = lines.join("\n");
-        
-      } else {
-        // トラック数が15以下の場合はそのまま（従来通り）出力
-        const lines = [];
-        validLabels.forEach(label => lines.push(`${trackNotes[label].scratch_id}`));
-        lines.push("/");
-        
-        validLabels.forEach(label => {
-          trackNotes[label].notes.forEach(([note, frame, beats, volume]) => {
-            lines.push(`${note}/${frame}/${beats}/${volume}`);
-          });
-          lines.push("/");
-        });
-        finalText = lines.join("\n");
+        instMaxSimultaneous[id] = maxC;
+        if (maxC > 5) needsSplitting = true;
+      });
+
+      // 楽器15種超えの削除判定
+      let droppedInsts = [];
+      let targetInstIds = instIds;
+      if (targetInstIds.length > 15) {
+        targetInstIds.sort((a, b) => groupedByInst[b].length - groupedByInst[a].length);
+        droppedInsts = targetInstIds.slice(15);
+        targetInstIds = targetInstIds.slice(0, 15);
       }
 
-      // --- ここまで ---
+      // トラック枠割り当て（目標: 1トラック当たり同一フレーム5音以下）
+      const allocatedSlots = {};
+      targetInstIds.forEach(id => allocatedSlots[id] = 1);
+      
+      if (needsSplitting) {
+        let remainingSlots = 15 - targetInstIds.length;
+        while (remainingSlots > 0) {
+          let bestId = null;
+          let maxCurrentPerSlot = 0;
+          
+          targetInstIds.forEach(id => {
+            const currentPerSlot = instMaxSimultaneous[id] / allocatedSlots[id];
+            if (currentPerSlot > 5 && currentPerSlot > maxCurrentPerSlot) {
+              maxCurrentPerSlot = currentPerSlot;
+              bestId = id;
+            }
+          });
 
+          if (!bestId) break;
+          allocatedSlots[bestId]++;
+          remainingSlots--;
+        }
+      }
+
+      // ラウンドロビン方式で分散配置
+      const finalTrackList = [];
+      targetInstIds.forEach(id => {
+        const notes = groupedByInst[id];
+        const slotsCount = allocatedSlots[id];
+        
+        if (slotsCount === 1) {
+          finalTrackList.push({ scratch_id: id, notes: notes });
+        } else {
+          const subTracks = Array.from({ length: slotsCount }, () => []);
+          let currentFrame = null;
+          let frameNoteIndex = 0;
+
+          notes.forEach(note => {
+            const frame = note[1];
+            if (frame !== currentFrame) {
+              currentFrame = frame;
+              frameNoteIndex = 0;
+            }
+            subTracks[frameNoteIndex % slotsCount].push(note);
+            frameNoteIndex++;
+          });
+
+          subTracks.forEach(sNotes => {
+            if (sNotes.length > 0) finalTrackList.push({ scratch_id: id, notes: sNotes });
+          });
+        }
+      });
+
+      if (needsSplitting) {
+        log.textContent += "\n同一フレームで5音を超える和音を検出したため、1トラック5音以下を目指して自動分散しました！\n";
+      } else {
+        log.textContent += "\nすべての和音が5音以下のため、1楽器1トラックでまとめました！\n";
+      }
+
+      if (droppedInsts.length > 0) {
+        log.textContent += "scratchで再生すると以下のトラック（楽器）が抜け落ちます:\n";
+        droppedInsts.forEach(id => log.textContent += `楽器番号 ${id}\n`);
+      }
+
+      // Scratch用フォーマット出力
+      const lines = [];
+      finalTrackList.forEach(tr => lines.push(`${tr.scratch_id}`));
+      lines.push("/");
+
+      finalTrackList.forEach(tr => {
+        tr.notes.forEach(([note, frame, beats, volume]) => {
+          lines.push(`${note}/${frame}/${beats}/${volume}`);
+        });
+        lines.push("/");
+      });
+
+      const finalText = lines.join("\n");
       const timestamp = new Date().toISOString().replace(/[-:T]/g, "").slice(0, 15);
       const blob = new Blob([finalText], { type: "text/plain" });
       const link = document.createElement("a");
