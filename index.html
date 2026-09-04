@@ -136,7 +136,7 @@
 
         track.notes.forEach(note => {
           // 実時間（秒）から Scratch の 30FPS フレーム数を算出
-          const startFrame = Math.round(note.time * 30);
+          const startFrame = Math.floor(note.time * 30);
           
           // Scratch(BPM 150)用の拍数換算
           const durationBeats = (note.duration * scratchBpm) / 60;
