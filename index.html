@@ -265,9 +265,9 @@
       });
 
       if (isBlackMidi) {
-        log.textContent += "\n高密度データ（10音以上）を検出したため、1トラック5音以下を目指して自動分散しました！\n";
+        log.textContent += "\n真っ黒midiを検出したため、自動分散しました。\n";
       } else {
-        log.textContent += "\n10音以上の重なりがないため、1楽器1トラックでまとめました！\n";
+        log.textContent += "\n真っ黒midiを検出しませんでした。\n";
       }
 
       if (droppedInsts.length > 0) {
