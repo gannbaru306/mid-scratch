@@ -10,17 +10,26 @@
     #drop-zone { border: 2px dashed #aaa; padding: 40px; text-align: center; color: #666; cursor: pointer; margin-bottom: 20px; }
     #drop-zone.dragover { border-color: #00aaff; background-color: #f0f8ff; }
     #log { background: #f4f4f4; border: 1px solid #ccc; padding: 10px; white-space: pre-wrap; height: 200px; overflow-y: auto; margin-top: 10px; }
+    .option-group { margin-bottom: 15px; padding: 10px; background: #eef2f5; border-radius: 5px; }
+    .option-group label { margin-right: 15px; cursor: pointer; user-select: none; }
   </style>
 </head>
 <body>
-  <h2>MIDI変換ツールv4.7</h2>
+  <h2>MIDI変換ツールv4.8</h2>
   <p style="margin-bottom: 15px;">
   <a href="https://scratch.mit.edu/projects/1221707096/" target="_blank" rel="noopener noreferrer">こちら</a>でデータを読み込んで演奏することができます。
   </p>
   <div id="drop-zone">ここをクリックするか、MIDIファイルをドラッグしてください</div>
   <input type="file" id="midiFile" accept=".mid,.midi" style="display:none;" />
+  
+  <div class="option-group">
+    <strong>変換設定:</strong><br>
+    <label><input type="checkbox" id="enableMerge" checked> 同種楽器の統合（同じScratch音源のトラックをまとめる）</label>
+    <label><input type="checkbox" id="enableDistribute" checked> 高密度トラックの自動分散（Black MIDI対策）</label>
+  </div>
+
   <button id="convertBtn">変換してダウンロード</button>
-  <div id="player-controls">
+  <div id="player-controls" style="margin-top: 15px;">
     <button id="playBtn">再生</button>
     <button id="pauseBtn">一時停止</button>
   </div>
@@ -117,8 +126,11 @@
     document.getElementById("convertBtn").addEventListener("click", async () => {
       if (!midi) { alert("MIDIファイルを選択してください"); return; }
 
+      const enableMerge = document.getElementById("enableMerge").checked;
+      const enableDistribute = document.getElementById("enableDistribute").checked;
+
       const trackNotes = {};
-      const scratchBpm = 150; // Scratch側の基本BPM設定
+      const scratchBpm = 150;
 
       midi.tracks.forEach((track, i) => {
         const label = `${track.name || `Track${i + 1}`}_Track${i + 1}`;
@@ -135,10 +147,7 @@
         const noteList = [];
 
         track.notes.forEach(note => {
-          // 実時間（秒）から Scratch の 30FPS フレーム数を算出
-          const startFrame = Math.floor(note.time * 30);
-          
-          // Scratch(BPM 150)用の拍数換算
+          const startFrame = Math.round(note.time * 30);
           const durationBeats = (note.duration * scratchBpm) / 60;
           let quantizedBeats = Math.round(durationBeats * 12) / 12;
           if (quantizedBeats <= 0) quantizedBeats = 1 / 12;
@@ -175,107 +184,113 @@
       log.textContent += "\n変換完了！ノート数:\n"; 
       Object.entries(trackNotes).forEach(([label, data]) => log.textContent += `${label}: ${data.notes.length} notes\n`);
 
-      // 同一scratch_idでノートを完全統合
       const validLabels = Object.keys(trackNotes).filter(label => trackNotes[label].notes.length > 0);
-      const groupedByInst = {};
-      validLabels.forEach(label => {
-        const id = trackNotes[label].scratch_id;
-        if (!groupedByInst[id]) groupedByInst[id] = [];
-        groupedByInst[id].push(...trackNotes[label].notes);
-      });
+      
+      // トラック群の構築（統合オプションに基づく）
+      const groupedTracks = [];
+      if (enableMerge) {
+        const groupedByInst = {};
+        validLabels.forEach(label => {
+          const id = trackNotes[label].scratch_id;
+          if (!groupedByInst[id]) groupedByInst[id] = [];
+          groupedByInst[id].push(...trackNotes[label].notes);
+        });
+        Object.keys(groupedByInst).forEach(id => {
+          groupedTracks.push({ scratch_id: parseInt(id, 10), notes: groupedByInst[id] });
+        });
+      } else {
+        validLabels.forEach(label => {
+          groupedTracks.push({ scratch_id: trackNotes[label].scratch_id, notes: trackNotes[label].notes });
+        });
+      }
 
-      const instIds = Object.keys(groupedByInst);
-      const instMaxSimultaneous = {};
-      let isBlackMidi = false;
-
-      // 判定：同一フレームで10音以上あるかチェック（真っ黒検知）
-      instIds.forEach(id => {
-        const notes = groupedByInst[id];
-        notes.sort((a, b) => a[1] - b[1]);
+      // 各グループの最大同時発音数チェック
+      groupedTracks.forEach(group => {
+        group.notes.sort((a, b) => a[1] - b[1]);
         const frameCounts = {};
         let maxC = 0;
-        notes.forEach(n => {
+        group.notes.forEach(n => {
           const f = n[1];
           frameCounts[f] = (frameCounts[f] || 0) + 1;
           if (frameCounts[f] > maxC) maxC = frameCounts[f];
         });
-        instMaxSimultaneous[id] = maxC;
-        if (maxC >= 10) isBlackMidi = true;
+        group.maxSimultaneous = maxC;
       });
 
-      // 楽器15種超えの削除判定
-      let droppedInsts = [];
-      let targetInstIds = instIds;
-      if (targetInstIds.length > 15) {
-        targetInstIds.sort((a, b) => groupedByInst[b].length - groupedByInst[a].length);
-        droppedInsts = targetInstIds.slice(15);
-        targetInstIds = targetInstIds.slice(0, 15);
+      let isBlackMidi = groupedTracks.some(g => g.maxSimultaneous >= 10);
+
+      // トラック制限（15枠）
+      let droppedTracks = [];
+      let targetTracks = groupedTracks;
+      if (targetTracks.length > 15) {
+        targetTracks.sort((a, b) => b.notes.length - a.notes.length);
+        droppedTracks = targetTracks.slice(15);
+        targetTracks = targetTracks.slice(0, 15);
       }
 
-      // トラック枠割り当て（10音以上の楽器だけを対象に、1スロット5音以下を目指して拡張）
-      const allocatedSlots = {};
-      targetInstIds.forEach(id => allocatedSlots[id] = 1);
-      
-      if (isBlackMidi) {
-        let remainingSlots = 15 - targetInstIds.length;
+      // トラック枠割当（分散オプションに基づく）
+      const finalTrackList = [];
+      if (enableDistribute && isBlackMidi) {
+        const allocatedSlots = targetTracks.map(() => 1);
+        let remainingSlots = 15 - targetTracks.length;
+
         while (remainingSlots > 0) {
-          let bestId = null;
+          let bestIdx = -1;
           let maxCurrentPerSlot = 0;
-          
-          targetInstIds.forEach(id => {
-            if (instMaxSimultaneous[id] >= 10) {
-              const currentPerSlot = instMaxSimultaneous[id] / allocatedSlots[id];
+
+          targetTracks.forEach((tr, idx) => {
+            if (tr.maxSimultaneous >= 10) {
+              const currentPerSlot = tr.maxSimultaneous / allocatedSlots[idx];
               if (currentPerSlot > 5 && currentPerSlot > maxCurrentPerSlot) {
                 maxCurrentPerSlot = currentPerSlot;
-                bestId = id;
+                bestIdx = idx;
               }
             }
           });
 
-          if (!bestId) break;
-          allocatedSlots[bestId]++;
+          if (bestIdx === -1) break;
+          allocatedSlots[bestIdx]++;
           remainingSlots--;
         }
-      }
 
-      // ラウンドロビン方式で分散配置
-      const finalTrackList = [];
-      targetInstIds.forEach(id => {
-        const notes = groupedByInst[id];
-        const slotsCount = allocatedSlots[id];
-        
-        if (slotsCount === 1) {
-          finalTrackList.push({ scratch_id: id, notes: notes });
-        } else {
-          const subTracks = Array.from({ length: slotsCount }, () => []);
-          let currentFrame = null;
-          let frameNoteIndex = 0;
+        // 分散処理
+        targetTracks.forEach((tr, idx) => {
+          const slotsCount = allocatedSlots[idx];
+          if (slotsCount === 1) {
+            finalTrackList.push({ scratch_id: tr.scratch_id, notes: tr.notes });
+          } else {
+            const subTracks = Array.from({ length: slotsCount }, () => []);
+            let currentFrame = null;
+            let frameNoteIndex = 0;
 
-          notes.forEach(note => {
-            const frame = note[1];
-            if (frame !== currentFrame) {
-              currentFrame = frame;
-              frameNoteIndex = 0;
-            }
-            subTracks[frameNoteIndex % slotsCount].push(note);
-            frameNoteIndex++;
-          });
+            tr.notes.forEach(note => {
+              const frame = note[1];
+              if (frame !== currentFrame) {
+                currentFrame = frame;
+                frameNoteIndex = 0;
+              }
+              subTracks[frameNoteIndex % slotsCount].push(note);
+              frameNoteIndex++;
+            });
 
-          subTracks.forEach(sNotes => {
-            if (sNotes.length > 0) finalTrackList.push({ scratch_id: id, notes: sNotes });
-          });
-        }
-      });
-
-      if (isBlackMidi) {
-        log.textContent += "\n同時発音数が多かったため、自動分散しました。\n";
+            subTracks.forEach(sNotes => {
+              if (sNotes.length > 0) finalTrackList.push({ scratch_id: tr.scratch_id, notes: sNotes });
+            });
+          }
+        });
+        log.textContent += "\音数が多かったため、自動分散しました。\n";
       } else {
-        log.textContent += "\n";
+        targetTracks.forEach(tr => finalTrackList.push({ scratch_id: tr.scratch_id, notes: tr.notes }));
+        if (isBlackMidi) {
+          log.textContent += "\n";
+        } else {
+          log.textContent += "\n";
+        }
       }
 
-      if (droppedInsts.length > 0) {
+      if (droppedTracks.length > 0) {
         log.textContent += "scratchで再生すると以下のトラック（楽器）が抜け落ちます:\n";
-        droppedInsts.forEach(id => log.textContent += `楽器番号 ${id}\n`);
+        droppedTracks.forEach(tr => log.textContent += `楽器番号 ${tr.scratch_id} (${tr.notes.length}音)\n`);
       }
 
       // Scratch用フォーマット出力
