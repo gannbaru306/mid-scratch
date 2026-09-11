@@ -163,7 +163,23 @@
         }
         if (!scratchId && programNumber !== null) scratchId = gmToScratchId(programNumber);
 
-        const isDrum = track.instrument?.family === "drums" || track.instrument?.number === 128;
+        // --- ドラム判定ロジック強化部分 ---
+        const uniqueNotes = new Set(track.notes.map(n => n.midi));
+        const isStandardDrum = 
+          track.instrument?.family === "drums" || 
+          track.instrument?.number === 128 || 
+          track.channel === 9 || 
+          track.channel === 10;
+        
+        // 使われている音の種類が少目（8種類以下）かつ、その全音符がドラム用ノート定義に含まれる場合は分離ドラムとみなす
+        const isSplitDrumTrack = 
+          uniqueNotes.size > 0 && 
+          uniqueNotes.size <= 8 && 
+          [...uniqueNotes].every(n => midiToScratchDrum[n] !== undefined);
+
+        const isDrum = isStandardDrum || isSplitDrumTrack;
+        // ---------------------------------
+
         const noteList = [];
 
         track.notes.forEach(note => {
@@ -191,7 +207,11 @@
 
       const undefinedDrumNotes = new Set();
       midi.tracks.forEach(track => {
-        if (track.instrument?.family === "drums" || track.instrument?.number === 128) {
+        const uniqueNotes = new Set(track.notes.map(n => n.midi));
+        const isStandardDrum = track.instrument?.family === "drums" || track.instrument?.number === 128 || track.channel === 9 || track.channel === 10;
+        const isSplitDrumTrack = uniqueNotes.size > 0 && uniqueNotes.size <= 8 && [...uniqueNotes].every(n => midiToScratchDrum[n] !== undefined);
+        
+        if (isStandardDrum || isSplitDrumTrack) {
           track.notes.forEach(note => { if (!midiToScratchDrum[note.midi]) undefinedDrumNotes.add(note.midi); });
         }
       });
