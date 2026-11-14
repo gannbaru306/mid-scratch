@@ -15,7 +15,7 @@
   </style>
 </head>
 <body>
-  <h2>MIDI変換ツールv5.4</h2>
+  <h2>MIDI変換ツールv5.5</h2>
   <p style="margin-bottom: 15px;">
   <a href="https://scratch.mit.edu/projects/1221707096/" target="_blank" rel="noopener noreferrer">こちら</a>でデータを読み込んで演奏することができます。
   </p>
@@ -141,6 +141,21 @@
       "retro horn": 20, "brass horn": 9
     };
 
+    // ドラムトラック判定（v5.5: 判定を一本化し、誤検出を抑制）
+    const DRUM_NAME_REGEX = /\b(drums?|drum\s?kit|percussion|kick|snare|hi-?hats?|toms?|cymbals?)\b|ドラム|打楽器|パーカッション/i;
+    const isDrumTrack = track => {
+      const notes = track.notes.map(n => n.midi);
+      if (notes.length === 0) return false;
+
+      // 1. GM規格のパーカッションチャンネル(ch10 = index 9)は無条件でドラム
+      if (track.channel === 9 || track.instrument?.percussion === true || track.instrument?.family === "drums") return true;
+
+      // 2. それ以外はトラック名にドラム系の語があり、かつほぼ全音がドラム音域の場合のみドラム扱い
+      //    （音域だけでドラムと判断すると、低音域のメロディ/ベースが誤判定されるため）
+      const inRange = notes.filter(n => midiToScratchDrum[n] !== undefined).length;
+      return DRUM_NAME_REGEX.test(track.name || "") && (inRange / notes.length) >= 0.9;
+    };
+
     const normalizeVelocity = v => Math.max(Math.round((v ** 2) * 100), 10);
     const sanitizeLabel = text => text.toLowerCase().replace(/[^a-z0-9]/g, '');
 
@@ -164,22 +179,7 @@
         }
         if (!scratchId && programNumber !== null) scratchId = gmToScratchId(programNumber);
 
-        const notesArray = track.notes.map(n => n.midi);
-        const uniqueNotes = new Set(notesArray);
-        const drumRangeCount = notesArray.filter(n => n >= 27 && n <= 81).length;
-        const isMostlyDrumRange = notesArray.length > 0 && (drumRangeCount / notesArray.length) >= 0.8;
-
-        const isStandardDrum = 
-          track.instrument?.family === "drums" || 
-          track.instrument?.number === 128 || 
-          (track.channel === 9 && isMostlyDrumRange);
-        
-        const isSplitDrumTrack = 
-          uniqueNotes.size > 0 && 
-          uniqueNotes.size <= 8 && 
-          [...uniqueNotes].every(n => midiToScratchDrum[n] !== undefined);
-
-        const isDrum = isStandardDrum || isSplitDrumTrack;      
+        const isDrum = isDrumTrack(track);
         const noteList = [];
 
         track.notes.forEach(note => {
@@ -207,22 +207,7 @@
 
       const undefinedDrumNotes = new Set();
       midi.tracks.forEach(track => {
-        const notesArray = track.notes.map(n => n.midi);
-        const uniqueNotes = new Set(notesArray);
-        const drumRangeCount = notesArray.filter(n => n >= 27 && n <= 81).length;
-        const isMostlyDrumRange = notesArray.length > 0 && (drumRangeCount / notesArray.length) >= 0.8;
-
-        const isStandardDrum = 
-          track.instrument?.family === "drums" || 
-          track.instrument?.number === 128 || 
-          (track.channel === 9 && isMostlyDrumRange);
-
-        const isSplitDrumTrack = 
-          uniqueNotes.size > 0 && 
-          uniqueNotes.size <= 8 && 
-          [...uniqueNotes].every(n => midiToScratchDrum[n] !== undefined);
-        
-        if (isStandardDrum || isSplitDrumTrack) {
+        if (isDrumTrack(track)) {
           track.notes.forEach(note => { if (!midiToScratchDrum[note.midi]) undefinedDrumNotes.add(note.midi); });
         }
       });
