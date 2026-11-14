@@ -15,7 +15,7 @@
   </style>
 </head>
 <body>
-  <h2>MIDI変換ツールv5.3</h2>
+  <h2>MIDI変換ツールv5.4</h2>
   <p style="margin-bottom: 15px;">
   <a href="https://scratch.mit.edu/projects/1221707096/" target="_blank" rel="noopener noreferrer">こちら</a>でデータを読み込んで演奏することができます。
   </p>
@@ -164,22 +164,22 @@
         }
         if (!scratchId && programNumber !== null) scratchId = gmToScratchId(programNumber);
 
-        // --- ドラム判定ロジック強化部分 ---
-        const uniqueNotes = new Set(track.notes.map(n => n.midi));
+        const notesArray = track.notes.map(n => n.midi);
+        const uniqueNotes = new Set(notesArray);
+        const drumRangeCount = notesArray.filter(n => n >= 27 && n <= 81).length;
+        const isMostlyDrumRange = notesArray.length > 0 && (drumRangeCount / notesArray.length) >= 0.8;
+
         const isStandardDrum = 
           track.instrument?.family === "drums" || 
           track.instrument?.number === 128 || 
-          track.channel === 9;
+          (track.channel === 9 && isMostlyDrumRange);
         
-        // 使われている音の種類が少目（8種類以下）かつ、その全音符がドラム用ノート定義に含まれる場合は分離ドラムとみなす
         const isSplitDrumTrack = 
           uniqueNotes.size > 0 && 
           uniqueNotes.size <= 8 && 
           [...uniqueNotes].every(n => midiToScratchDrum[n] !== undefined);
 
-        const isDrum = isStandardDrum || isSplitDrumTrack;
-        // ---------------------------------
-
+        const isDrum = isStandardDrum || isSplitDrumTrack;      
         const noteList = [];
 
         track.notes.forEach(note => {
@@ -207,14 +207,26 @@
 
       const undefinedDrumNotes = new Set();
       midi.tracks.forEach(track => {
-        const uniqueNotes = new Set(track.notes.map(n => n.midi));
-        const isStandardDrum = track.instrument?.family === "drums" || track.instrument?.number === 128 || track.channel === 9 || track.channel === 10;
-        const isSplitDrumTrack = uniqueNotes.size > 0 && uniqueNotes.size <= 8 && [...uniqueNotes].every(n => midiToScratchDrum[n] !== undefined);
+        const notesArray = track.notes.map(n => n.midi);
+        const uniqueNotes = new Set(notesArray);
+        const drumRangeCount = notesArray.filter(n => n >= 27 && n <= 81).length;
+        const isMostlyDrumRange = notesArray.length > 0 && (drumRangeCount / notesArray.length) >= 0.8;
+
+        const isStandardDrum = 
+          track.instrument?.family === "drums" || 
+          track.instrument?.number === 128 || 
+          (track.channel === 9 && isMostlyDrumRange);
+
+        const isSplitDrumTrack = 
+          uniqueNotes.size > 0 && 
+          uniqueNotes.size <= 8 && 
+          [...uniqueNotes].every(n => midiToScratchDrum[n] !== undefined);
         
         if (isStandardDrum || isSplitDrumTrack) {
           track.notes.forEach(note => { if (!midiToScratchDrum[note.midi]) undefinedDrumNotes.add(note.midi); });
         }
       });
+
 
       if (undefinedDrumNotes.size > 0) {
         log.textContent += "\n以下の内容をgannbaru306のMIDI再生プログラムのコメント欄に貼り付けてください。\nドラムが正しく認識されませんでした。\n";
